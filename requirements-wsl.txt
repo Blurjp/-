@@ -1,0 +1,28 @@
+# Runtime deps for lingbot-world-v2 on a single consumer GPU under WSL2.
+#
+# This mirrors upstream requirements.txt with two deliberate changes:
+#   1. flash_attn is NOT listed. wan/modules/attention.py falls back to
+#      torch.nn.functional.scaled_dot_product_attention when flash-attn is
+#      absent, and building flash-attn under WSL takes 30-60 min of CPU time.
+#      Opt in with LW2_BUILD_FLASH_ATTN=1 (see scripts/01_install.sh).
+#   2. safetensors is pinned explicitly — the 1.3B checkpoint ships sharded
+#      safetensors that wan/image2video.py loads directly.
+#
+# torch/torchvision are installed separately from the CUDA wheel index.
+
+opencv-python>=4.9.0.80
+diffusers>=0.31.0
+transformers>=4.49.0,<=4.51.3
+tokenizers>=0.20.3
+accelerate>=1.1.1
+safetensors>=0.4.3
+sentencepiece>=0.2.0
+tqdm
+imageio[ffmpeg]
+imageio-ffmpeg
+easydict
+ftfy
+einops
+numpy>=1.23.5,<2
+scipy
+huggingface_hub[cli]>=0.26.0

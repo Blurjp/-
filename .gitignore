@@ -1,0 +1,9 @@
+# Local model weights and generated media never belong in git.
+output/
+*.mp4
+*.safetensors
+*.pth
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
