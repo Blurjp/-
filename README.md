@@ -1,5 +1,7 @@
 # LingBot-World 2.0 on Windows (WSL2) + RTX 4090
 
+> Also in this repo: **[sinian/](sinian/)** — 思念, an on-device app for talking with an AI simulation of a deceased relative, with family consent ([research](sinian/docs/RESEARCH.md)).
+
 Setup for running **LingBot-World 2.0 / LingBot-World-Infinity** — the open-source
 interactive world model from Robbyant (Ant Lingbo) referenced in the post — on a
 single consumer GPU under WSL2.

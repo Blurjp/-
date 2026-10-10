@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "思念",
+    "slug": "sinian",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "app.sinian",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "用于录制你说的话并在本机转成文字；录音不会上传。",
+        "NSPhotoLibraryUsageDescription": "用于选择亲人的照片，照片只保存在本机。"
+      }
+    },
+    "android": {
+      "package": "app.sinian",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-secure-store",
+      [
+        "llama.rn",
+        {
+          "enableOpenCL": true
+        }
+      ]
+    ]
+  }
+}
