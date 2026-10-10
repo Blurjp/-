@@ -11,7 +11,7 @@ export function deviceLang(): Lang {
 }
 
 const en = {
-  appName: "Keepsake",
+  appName: "Kinsong",
   tabs: { consent: "Family consent", import: "Memories", chat: "Talk", settings: "Settings" },
   modality: { text: "Text", voice: "Voice", image: "Photos", video: "Video" } as Record<Modality, string>,
   relationship: {

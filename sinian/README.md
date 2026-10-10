@@ -1,4 +1,4 @@
-# Keepsake（工作名，原"思念"）· 本地运行的逝者对话 App
+# Kinsong · 本地运行的逝者对话 App（iOS 名：Kinsong: Family Voices）
 
 **目标市场：美国、加拿大。** 用亲人留下的短信、聊天记录、声音和照片，在**手机本地**生成一个可以对话的 AI 模拟。
 必须先取得家人一致同意，在北美还需要遗产执行人签署；任何一位撤回，所有资料和模型立即删除。
@@ -7,6 +7,7 @@ App 界面默认英文，可切换中文。
 - 🇺🇸🇨🇦 **北美竞品、法规、进入策略：[docs/NORTH_AMERICA.md](docs/NORTH_AMERICA.md)**
 - 🌏 全球背景调研（含中国市场）：[docs/RESEARCH.md](docs/RESEARCH.md)
 - 🏗 技术架构、推荐模型、路线图：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 🧪 **发布到 TestFlight：[docs/TESTFLIGHT.md](docs/TESTFLIGHT.md)**（`cd app && npm run testflight`）
 
 ## 它会做什么
 

@@ -82,7 +82,7 @@
 | 英文人设提示词；英文口头禅提取（过滤功能词） | `core/src/prompt.ts`, `persona.ts` |
 | 拦截"买礼品卡/Venmo/Zelle/社安号/账号"等诈骗话术 | `core/src/safety.ts` |
 | 导入：iMessage CSV、安卓 SMS Backup & Restore XML、Facebook Messenger/Instagram JSON（修复乱码）、WhatsApp 自动识别美式日期 | `core/src/importers/` |
-| App 默认英文（可切换中文），工作名 **Keepsake**（待商标检索） | `app/src/i18n.ts`, `app.json` |
+| App 默认英文（可切换中文），App 名 **Kinsong**（待商标检索） | `app/src/i18n.ts`, `app.json` |
 
 ## 六、进入策略（建议，待验证）
 

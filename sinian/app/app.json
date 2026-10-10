@@ -1,19 +1,26 @@
 {
   "expo": {
-    "name": "Keepsake",
-    "slug": "keepsake",
+    "name": "Kinsong",
+    "slug": "kinsong",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "app.keepsake",
+      "bundleIdentifier": "app.kinsong.ios",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Used to turn what you say into text on this phone. Recordings are never uploaded.",
-        "NSPhotoLibraryUsageDescription": "Used to pick a photo of your loved one. It stays on this phone."
+        "NSPhotoLibraryUsageDescription": "Used to pick a photo of your loved one. It stays on this phone.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSDocumentsFolderUsageDescription": "Used to import message exports you choose. Files stay on this phone."
+      },
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "entitlements": {
+        "com.apple.developer.kernel.increased-memory-limit": true
       }
     },
     "android": {
-      "package": "app.keepsake",
+      "package": "app.kinsong",
       "permissions": [
         "RECORD_AUDIO"
       ]
@@ -24,9 +31,21 @@
       [
         "llama.rn",
         {
-          "enableOpenCL": true
+          "enableOpenCLAndHexagon": true
         }
       ]
-    ]
+    ],
+    "scheme": "kinsong",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F0E4"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
   }
 }
