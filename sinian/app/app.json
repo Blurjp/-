@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "思念",
-    "slug": "sinian",
+    "name": "Keepsake",
+    "slug": "keepsake",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "app.sinian",
+      "bundleIdentifier": "app.keepsake",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "用于录制你说的话并在本机转成文字；录音不会上传。",
-        "NSPhotoLibraryUsageDescription": "用于选择亲人的照片，照片只保存在本机。"
+        "NSMicrophoneUsageDescription": "Used to turn what you say into text on this phone. Recordings are never uploaded.",
+        "NSPhotoLibraryUsageDescription": "Used to pick a photo of your loved one. It stays on this phone."
       }
     },
     "android": {
-      "package": "app.sinian",
+      "package": "app.keepsake",
       "permissions": [
         "RECORD_AUDIO"
       ]

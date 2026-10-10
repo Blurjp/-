@@ -8,6 +8,7 @@ import {
   type PersonaProfile,
   type UsageLog,
 } from "@sinian/core";
+import { deviceLang, type Lang } from "../i18n";
 
 /**
  * Everything about one deceased person lives in one directory on the phone.
@@ -29,16 +30,21 @@ export interface Vault {
   voiceRefText?: string;
   region: string;
   maxMinutesPerDay: number;
+  lang: Lang;
+  /** Aggregate count of crisis referrals shown (no content). */
+  crisisReferrals: number;
 }
 
 export function emptyVault(): Vault {
   return {
-    consent: { deceasedName: "", kinListAttested: false, relatives: [], consents: [] },
+    consent: { jurisdiction: "US", deceasedName: "", kinListAttested: false, relatives: [], consents: [] },
     memories: [],
     assets: [],
     usage: { minutesByDay: {} },
-    region: "CN",
+    region: "US",
     maxMinutesPerDay: 30,
+    lang: deviceLang(),
+    crisisReferrals: 0,
   };
 }
 

@@ -3,7 +3,8 @@
 /**
  * Encode mono float samples as 16-bit PCM WAV. `comment` goes into a LIST/INFO
  * ICMT chunk — used as the implicit "AI-generated" label required for synthetic
- * audio (《人工智能生成合成内容标识办法》, EU AI Act Art. 50).
+ * audio (EU AI Act Art. 50, China's AIGC labelling rules; good practice under
+ * NY/CA companion-chatbot disclosure laws).
  */
 export function encodeWav(samples: Float32Array, sampleRate: number, comment?: string): Uint8Array {
   const info = comment ? new TextEncoder().encode(comment + "\0") : undefined;
@@ -45,7 +46,7 @@ export function encodeWav(samples: Float32Array, sampleRate: number, comment?: s
 export function decodeWav(bytes: Uint8Array): { samples: Float32Array; sampleRate: number } {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = (o: number) => String.fromCharCode(...bytes.subarray(o, o + 4));
-  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("不是 WAV 文件");
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("Not a WAV file");
   let off = 12, channels = 1, sampleRate = 16000, bits = 16;
   while (off + 8 <= bytes.length) {
     const id = tag(off), size = v.getUint32(off + 4, true);
@@ -54,7 +55,7 @@ export function decodeWav(bytes: Uint8Array): { samples: Float32Array; sampleRat
       sampleRate = v.getUint32(off + 12, true);
       bits = v.getUint16(off + 22, true);
     } else if (id === "data") {
-      if (bits !== 16) throw new Error("只支持 16-bit PCM WAV");
+      if (bits !== 16) throw new Error("Only 16-bit PCM WAV is supported");
       const frames = Math.floor(size / 2 / channels);
       const out = new Float32Array(frames);
       for (let f = 0; f < frames; f++) {
@@ -66,5 +67,5 @@ export function decodeWav(bytes: Uint8Array): { samples: Float32Array; sampleRat
     }
     off += 8 + size + (size % 2);
   }
-  throw new Error("WAV 中没有音频数据");
+  throw new Error("WAV has no audio data");
 }

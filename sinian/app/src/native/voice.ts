@@ -4,7 +4,7 @@ import { initLlama, type LlamaContext, type LlamaSpeaker } from "llama.rn";
 import { decodeWav, encodeWav } from "./wav";
 import { modelFile } from "./models";
 
-export const AI_AUDIO_LABEL = "AIGC: 思念 app synthetic voice. Not a real recording.";
+export const AI_AUDIO_LABEL = "AIGC: synthetic voice generated on-device by an AI memorial app. Not a real recording.";
 
 /**
  * On-device voice cloning with llama.rn's TTS API (codec-LM models such as
@@ -34,7 +34,7 @@ export class VoiceClone {
 
   /** Synthesize `text` in the cloned voice and return a labelled WAV file. */
   async synthesize(text: string): Promise<File> {
-    if (!this.speaker) throw new Error("还没有设置声音样本");
+    if (!this.speaker) throw new Error("No voice reference set");
     const ctx = this.ctx!;
     const { prompt, grammar, embedding, flow } = await ctx.getFormattedAudioCompletion({ prompt: text, speaker: this.speaker });
     const result = await ctx.completion({ prompt, grammar, embedding, temperature: 0.7, top_p: 0.9 });

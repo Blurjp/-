@@ -33,11 +33,11 @@
 ```
 sinian/
 ├── core/                 纯 TypeScript，无原生依赖，可单元测试
-│   ├── src/consent.ts    同意规则（本人意愿 > 第一顺序近亲属全体 > 第二顺序全体）
-│   ├── src/importers/    微信 txt / WhatsApp 导出解析
+│   ├── src/consent.ts    同意规则（本人意愿 > 第一顺序家属全体 > 第二顺序全体；US/CA 另需遗产执行人 + 生物特征授权）
+│   ├── src/importers/    iMessage CSV / SMS Backup XML / Messenger JSON / WhatsApp / 微信 解析
 │   ├── src/persona.ts    从本人消息中提取口头禅、语气词、表情、平均长度、真实问答例句
 │   ├── src/memory.ts     BM25 检索（中文二元分词 + 英文单词）
-│   ├── src/safety.ts     危机检测、输出规则、AI 披露、使用时长
+│   ├── src/safety.ts     危机检测（中英）、各地区热线、输出规则、AI 披露（每 3 小时）、使用时长
 │   ├── src/prompt.ts     系统提示词组装，超预算时先丢回忆、再丢例句，永不丢规则
 │   ├── src/engine.ts     对话引擎，串起以上所有步骤
 │   └── src/deletion.ts   撤回某种模态时需要删除哪些资产
@@ -47,6 +47,7 @@ sinian/
     ├── src/native/stt.ts     whisper.rn 语音转文字
     ├── src/native/wav.ts     WAV 编解码（带 AIGC 元数据）
     ├── src/state/vault.ts    本地存储、资产登记、删除
+    ├── src/i18n.ts           英文（默认）/ 中文界面
     └── src/screens/          家人同意 / 导入资料 / 对话 / 设置
 ```
 
@@ -56,9 +57,11 @@ sinian/
 
 | 用途 | 推荐 | 体积 (约) | 说明 |
 | --- | --- | --- | --- |
-| 对话 | Qwen3 4B Instruct, Q4_K_M GGUF | 2.5 GB | 旗舰机（8GB+ 内存）。中端机换 1.7B（约 1.1 GB）。中文表现好。 |
-| 声音克隆 | Chatterbox multilingual 或 Qwen3-TTS 0.6B（backbone + codec GGUF） | 1–2 GB | llama.rn 测试矩阵中两者在 Android CPU / Hexagon 与 Metal 上均通过。中文优先试 Qwen3-TTS。 |
-| 语音识别 | whisper small 或 large-v3-turbo (q5) ggml | 0.2–0.6 GB | 中文用 turbo 更准。 |
+| 对话 | Qwen3 4B Instruct 或 Llama 3.2 3B Instruct，Q4_K_M GGUF | 2–2.5 GB | 旗舰机（8GB+ 内存）。中端机换 Qwen3 1.7B（约 1.1 GB）。英文两者都可，中文用 Qwen3。 |
+| 声音克隆 | Chatterbox（英文）/ Chatterbox multilingual / Qwen3-TTS 0.6B（backbone + codec GGUF） | 1–2 GB | llama.rn 测试矩阵中在 Android CPU / Hexagon 与 Metal 上均通过。北美英文首选 Chatterbox。 |
+| 语音识别 | whisper small.en / large-v3-turbo (q5) ggml | 0.2–0.6 GB | 英文用 small.en 就够。 |
+
+商用前逐个核对模型许可证（Llama 社区许可证有附加条款；Qwen、Chatterbox、Whisper 的许可证以各自仓库为准）。
 
 手机要求：iOS 16+/A16 以上，或 Android 骁龙 8 Gen 2 及以上、8GB 内存。llama.rn 的 Android OpenCL 后端在 `app.json` 中已开启。
 
@@ -67,7 +70,8 @@ sinian/
 - 所有资料在 App 私有目录 `Documents/vault/`，iOS 受 Data Protection 保护，Android 受文件级加密保护。
 - 死亡证明只保存 SHA-256 指纹，原文件读取后立即删除。
 - 聊天导出文件、声音、照片都登记在 `vault.assets`，撤回同意时 `deletionPlan()` 精确找到并删除。
-- 合成音频在 WAV 的 LIST/INFO 块写入 `AIGC` 标识，满足隐式标识要求；对话页常驻"AI 模拟"标签，满足显式标识要求。
+- 合成音频在 WAV 的 LIST/INFO 块写入 `AIGC` 标识（隐式标识）；对话页常驻 "AI simulation" 标签（显式标识）。
+- 危机转介只在本机计次数（`SafetyStats` / `vault.crisisReferrals`），不保存任何对话内容。
 - **待办**：用 SQLCipher 存储 vault，密钥放 `expo-secure-store`（Keychain/Keystore），并支持 Face ID 解锁。
 
 ## 开发
@@ -84,7 +88,7 @@ npx expo run:android   # 或 run:ios
 | 阶段 | 内容 |
 | --- | --- |
 | **1（本仓库）** | 同意流程、聊天记录导入、风格学习、回忆检索、本地对话、声音克隆朗读、安全层、删除 |
-| 2 | 语音输入（whisper.rn 已接好）；家属各自手机签署（邀请链接 + 设备签名，取代当面签署）；生前"数字遗嘱"录制模式（本人亲自授权与录制，最理想的数据来源） |
+| 2 | **Legacy 模式**：本人在世时录制和授权，北美首推（法律最干净）。语音输入（whisper.rn 已接好）。家属和遗产执行人各自在手机上签署（邀请链接 + 设备签名 + 可选电子签名服务，取代当面签署）。 |
 | 3 | 会动的头像：先做"预渲染"——用开源说话头像模型在可选的家庭自建服务器上把回复渲染成短视频，渲染后服务器立即删除；等手机端实时模型成熟再迁回本机 |
 | 4 | 可选 LoRA 微调：在家庭自己的电脑上用聊天记录微调小模型，提高口吻相似度；产物登记为 `text-adapter` 资产，同样受撤回约束 |
 
@@ -93,4 +97,6 @@ npx expo run:android   # 或 run:ios
 - 不提供云端托管版本、不做订阅制（避免"不续费就再失去一次"）。
 - 不允许导出可冒充本人的音频/视频，不提供"打电话给别人"之类的功能（防诈骗）。
 - 不为公众人物或非亲属建模。
-- 不对未成年人开放（第二阶段可考虑在监护人陪同下的模式）。
+- 不对未成年人开放（COPPA、纽约/加州陪伴机器人法对未成年人另有要求）。
+- 不做治疗宣称（避免被当作医疗器械）。
+- 不引导用户登录逝者本人的账号导出数据（RUFADAA）；只导入用户自己设备或账号里的副本。

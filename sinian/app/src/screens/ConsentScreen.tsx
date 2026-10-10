@@ -5,37 +5,39 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import {
   ALL_MODALITIES,
-  decisiveRelatives,
+  describeReason,
   evaluateConsent,
+  requiredSigners,
+  type Jurisdiction,
   type Modality,
   type Relationship,
   type Relative,
 } from "@sinian/core";
-import { useVault } from "../state/VaultContext";
+import { useStrings, useVault } from "../state/VaultContext";
 import { wipe } from "../state/vault";
 import { Button, Chip, Field, Note, Section, colors } from "../ui";
 
-const REL_LABEL: Record<Relationship, string> = {
-  spouse: "配偶", child: "子女", parent: "父母", sibling: "兄弟姐妹",
-  grandparent: "祖父母/外祖父母", grandchild: "孙子女/外孙子女", other: "其他",
-};
-export const MOD_LABEL: Record<Modality, string> = { text: "文字", voice: "声音", image: "照片", video: "视频" };
-
+/** Hash a picked document; the document itself is deleted right away. */
 async function sha256OfPickedFile(): Promise<string | undefined> {
   const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
   if (r.canceled || !r.assets[0]) return;
   const f = new File(r.assets[0].uri);
   const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, await f.bytes());
-  f.delete(); // only the hash is kept; the certificate itself never stays on disk
+  f.delete();
   return "sha256:" + [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function SignPanel({ relative, onDone }: { relative: Relative; onDone: () => void }) {
+function SignPanel({ relative, northAmerica, onDone }: { relative: Relative; northAmerica: boolean; onDone: () => void }) {
   const { update } = useVault();
+  const t = useStrings();
   const [mods, setMods] = useState<Modality[]>(["text", "voice"]);
   const [typed, setTyped] = useState("");
   const [adult, setAdult] = useState(false);
+  const [release, setRelease] = useState(false);
+  const askRelease = northAmerica && !!relative.personalRepresentative;
   const toggle = (m: Modality) => setMods((x) => (x.includes(m) ? x.filter((y) => y !== m) : [...x, m]));
+  const signed = typed.trim() === relative.name && adult;
+
   const sign = (decision: "grant" | "refuse") => {
     update((v) => {
       v.consent.consents.push({
@@ -43,36 +45,55 @@ function SignPanel({ relative, onDone }: { relative: Relative; onDone: () => voi
         decision,
         modalities: decision === "grant" ? mods : [],
         signedAt: new Date().toISOString(),
+        ...(askRelease && decision === "grant" ? { biometricRelease: release } : {}),
       });
     });
     onDone();
   };
+
   return (
     <View style={{ marginTop: 8, padding: 10, backgroundColor: colors.bg, borderRadius: 8 }}>
-      <Note>请 {relative.name} 本人阅读并操作。同意后可随时撤回，撤回会立即删除所有生成的模型和资料。</Note>
-      <Text style={{ marginTop: 8 }}>允许使用：</Text>
+      <Note>{t.sign.intro(relative.name)}</Note>
+      <Text style={{ marginTop: 8 }}>{t.sign.allow}</Text>
       <View style={{ flexDirection: "row", gap: 8, marginVertical: 6, flexWrap: "wrap" }}>
-        {ALL_MODALITIES.map((m) => <Chip key={m} label={MOD_LABEL[m]} on={mods.includes(m)} onPress={() => toggle(m)} />)}
+        {ALL_MODALITIES.map((m) => <Chip key={m} label={t.modality[m]} on={mods.includes(m)} onPress={() => toggle(m)} />)}
       </View>
-      <Field label={`输入你的全名"${relative.name}"作为签名`} value={typed} onChangeText={setTyped} />
-      <Chip label="我已年满 18 周岁" on={adult} onPress={() => setAdult((a) => !a)} />
-      <Button label="我同意" disabled={typed.trim() !== relative.name || !mods.includes("text") || !adult} onPress={() => sign("grant")} />
-      <Button label="我不同意" kind="plain" disabled={typed.trim() !== relative.name} onPress={() => sign("refuse")} />
+      {askRelease && (
+        <View style={{ marginVertical: 6 }}>
+          <Text style={{ fontWeight: "600" }}>{t.sign.biometricTitle}</Text>
+          <Note>{t.sign.biometric}</Note>
+          <Chip label={t.sign.biometricAgree} on={release} onPress={() => setRelease((x) => !x)} />
+        </View>
+      )}
+      <Field label={t.sign.typeName(relative.name)} value={typed} onChangeText={setTyped} autoCapitalize="words" />
+      <Chip label={t.sign.adult} on={adult} onPress={() => setAdult((a) => !a)} />
+      <Button label={t.sign.agree} disabled={!signed || !mods.includes("text")} onPress={() => sign("grant")} />
+      <Button label={t.sign.decline} kind="plain" disabled={!signed} onPress={() => sign("refuse")} />
     </View>
   );
 }
 
 export function ConsentScreen() {
   const { vault, update } = useVault();
+  const t = useStrings();
   const c = vault.consent;
+  const jurisdiction: Jurisdiction = c.jurisdiction ?? "US";
+  const northAmerica = jurisdiction !== "CN";
   const status = evaluateConsent(c);
-  const decisive = new Set(decisiveRelatives(c).map((r) => r.id));
+  const required = new Set(requiredSigners(c).map((r) => r.id));
   const [name, setName] = useState("");
   const [rel, setRel] = useState<Relationship>("child");
   const [signing, setSigning] = useState<string>();
+  const modList = (ms: Modality[]) => ms.map((m) => t.modality[m]).join(", ");
 
   const latest = (id: string) =>
     [...c.consents].filter((k) => k.relativeId === id).sort((a, b) => b.signedAt.localeCompare(a.signedAt))[0];
+
+  const editRelative = (id: string, fn: (r: Relative) => void) =>
+    update((v) => {
+      const r = v.consent.relatives.find((x) => x.id === id);
+      if (r) fn(r);
+    });
 
   const revoke = (id: string) =>
     update((v) => {
@@ -84,59 +105,83 @@ export function ConsentScreen() {
 
   return (
     <View>
-      <Section title="当前状态">
-        <Text style={{ fontSize: 16, color: status.state === "active" ? "green" : colors.ink }}>
-          {{ active: "✅ 已获全部授权", pending: "⏳ 等待中", blocked: "⛔ 不能创建", revoked: "🗑 已撤回并删除" }[status.state]}
-        </Text>
-        {"reasons" in status && status.reasons.map((r) => <Note key={r}>· {r}</Note>)}
-        {status.state === "active" && <Note>允许：{status.modalities.map((m) => MOD_LABEL[m]).join("、")}</Note>}
+      <Section title={t.consent.status}>
+        <Text style={{ fontSize: 16, color: status.state === "active" ? "green" : colors.ink }}>{t.consent.states[status.state]}</Text>
+        {"reasons" in status && status.reasons.map((r, i) => <Note key={i}>• {describeReason(r, vault.lang)}</Note>)}
+        {status.state === "active" && (
+          <>
+            <Note>{t.consent.allowed(modList(status.modalities))}</Note>
+            {status.notes.map((r, i) => <Note key={i}>• {describeReason(r, vault.lang)}</Note>)}
+          </>
+        )}
       </Section>
 
-      <Section title="逝者">
-        <Field label="姓名" value={c.deceasedName} onChangeText={(t) => update((v) => { v.consent.deceasedName = t; })} />
+      <Section title={t.consent.jurisdiction}>
+        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+          {(["US", "CA", "CN"] as const).map((j) => (
+            <Chip key={j} label={t.consent.jurisdictions[j]} on={jurisdiction === j} onPress={() => update((v) => { v.consent.jurisdiction = j; })} />
+          ))}
+        </View>
+      </Section>
+
+      <Section title={t.consent.person}>
+        <Field label={t.consent.fullName} value={c.deceasedName} onChangeText={(x) => update((v) => { v.consent.deceasedName = x; })} />
         <Button
           kind="plain"
-          label={c.deathEvidenceHash ? "✓ 已记录死亡证明（仅保存指纹）" : "上传死亡证明 / 火化证明"}
+          label={c.deathEvidenceHash ? t.consent.deathCertDone : t.consent.deathCert}
           onPress={async () => {
             const h = await sha256OfPickedFile();
             if (h) update((v) => { v.consent.deathEvidenceHash = h; });
           }}
         />
-        <Note>如果{c.deceasedName || "逝者"}生前留下过"可以/不可以被数字化"的意愿，以本人意愿为准（本人拒绝时任何人都无法开启）。</Note>
+        <Note>{t.consent.directiveNote(c.deceasedName)}</Note>
       </Section>
 
-      <Section title="近亲属（每一位都需要本人签署）">
+      <Section title={t.consent.family}>
         {c.relatives.map((r) => {
           const k = latest(r.id);
           return (
             <View key={r.id} style={{ paddingVertical: 8, borderBottomWidth: 0.5, borderColor: "#ddd" }}>
               <Text style={{ fontSize: 16 }}>
-                {r.name}（{REL_LABEL[r.relationship]}）{decisive.has(r.id) ? "" : " · 非必需"}
+                {r.name} ({t.relationship[r.relationship]}){r.personalRepresentative ? ` · ${t.consent.executor}` : ""}
+                {required.has(r.id) ? "" : t.consent.notRequired}
               </Text>
               <Note>
-                {r.verified ? "身份已核验" : "身份未核验"} ·{" "}
-                {!k ? "未签署" : k.revokedAt ? "已撤回" : k.decision === "grant" ? `同意：${k.modalities.map((m) => MOD_LABEL[m]).join("、")}` : "不同意"}
+                {r.verified ? t.consent.verified : t.consent.unverified} ·{" "}
+                {!k ? t.consent.unsigned : k.revokedAt ? t.consent.withdrawn : k.decision === "grant" ? t.consent.agreed(modList(k.modalities)) : t.consent.declined}
               </Note>
               <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                {!r.verified && (
-                  <Button kind="plain" label="已当面核对身份证件" onPress={() => update((v) => {
-                    const x = v.consent.relatives.find((y) => y.id === r.id);
-                    if (x) x.verified = true;
-                  })} />
+                {northAmerica && (
+                  <Chip
+                    label={t.consent.markExecutor}
+                    on={!!r.personalRepresentative}
+                    onPress={() => editRelative(r.id, (x) => { x.personalRepresentative = !x.personalRepresentative; })}
+                  />
                 )}
-                {(!k || k.revokedAt) && <Button kind="plain" label="签署" onPress={() => setSigning(r.id)} />}
-                {k && !k.revokedAt && k.decision === "grant" && <Button kind="danger" label="撤回同意" onPress={() => revoke(r.id)} />}
+                {northAmerica && r.personalRepresentative && (
+                  <Button
+                    kind="plain"
+                    label={r.authorityEvidenceHash ? t.consent.lettersDone : t.consent.lettersUpload}
+                    onPress={async () => {
+                      const h = await sha256OfPickedFile();
+                      if (h) editRelative(r.id, (x) => { x.authorityEvidenceHash = h; });
+                    }}
+                  />
+                )}
+                {!r.verified && <Button kind="plain" label={t.consent.verifyId} onPress={() => editRelative(r.id, (x) => { x.verified = true; })} />}
+                {(!k || k.revokedAt) && <Button kind="plain" label={t.consent.sign} onPress={() => setSigning(r.id)} />}
+                {k && !k.revokedAt && k.decision === "grant" && <Button kind="danger" label={t.consent.withdraw} onPress={() => revoke(r.id)} />}
               </View>
-              {signing === r.id && <SignPanel relative={r} onDone={() => setSigning(undefined)} />}
+              {signing === r.id && <SignPanel relative={r} northAmerica={northAmerica} onDone={() => setSigning(undefined)} />}
             </View>
           );
         })}
-        <Field label="添加亲属姓名" value={name} onChangeText={setName} />
+        <Field label={t.consent.addName} value={name} onChangeText={setName} autoCapitalize="words" />
         <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-          {(Object.keys(REL_LABEL) as Relationship[]).map((k) => <Chip key={k} label={REL_LABEL[k]} on={rel === k} onPress={() => setRel(k)} />)}
+          {(Object.keys(t.relationship) as Relationship[]).map((k) => <Chip key={k} label={t.relationship[k]} on={rel === k} onPress={() => setRel(k)} />)}
         </View>
         <Button
-          label="添加"
+          label={t.consent.add}
           disabled={!name.trim()}
           onPress={() => {
             update((v) => { v.consent.relatives.push({ id: Crypto.randomUUID(), name: name.trim(), relationship: rel, verified: false }); });
@@ -145,10 +190,10 @@ export function ConsentScreen() {
         />
         <Button
           kind={c.kinListAttested ? "plain" : "primary"}
-          label={c.kinListAttested ? "✓ 已声明名单完整" : "我声明：以上包含了所有在世的配偶、子女、父母"}
+          label={c.kinListAttested ? t.consent.attested : t.consent.attest}
           onPress={() => update((v) => { v.consent.kinListAttested = !v.consent.kinListAttested; })}
         />
-        <Note>按《民法典》第994条的顺序：有配偶、子女、父母时须他们全部同意；都不在世时由兄弟姐妹、祖父母、孙子女全部同意。任何一人反对即不能创建。</Note>
+        <Note>{t.consent.rule}</Note>
       </Section>
     </View>
   );

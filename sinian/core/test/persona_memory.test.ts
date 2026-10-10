@@ -35,3 +35,17 @@ describe("MemoryIndex", () => {
     expect(idx.search("想吃你做的红烧肉")[0]!.id).toBe("2");
   });
 });
+
+describe("English style", () => {
+  it("keeps distinctive phrases and drops function-word n-grams", () => {
+    const chat: ChatMessage[] = [];
+    for (let i = 0; i < 10; i++) {
+      chat.push({ time: "", sender: "Me", text: `long day ${i}` });
+      chat.push({ time: "", sender: "Dad", text: "Proud of you kiddo. Get some rest!" });
+    }
+    const s = buildStyleProfile(chat, "Dad");
+    expect(s.catchphrases.some((p) => p.includes("proud of you kiddo") || p.includes("you kiddo"))).toBe(true);
+    expect(s.catchphrases).not.toContain("of you");
+    expect(s.exclaimRate).toBe(1);
+  });
+});

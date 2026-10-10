@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { emptyVault, loadVault, saveVault, type Vault } from "./vault";
+import { STRINGS } from "../i18n";
 
 interface Ctx {
   vault: Vault;
@@ -37,4 +38,9 @@ export function useVault(): Ctx {
   const c = useContext(VaultContext);
   if (!c) throw new Error("useVault outside VaultProvider");
   return c;
+}
+
+/** UI strings in the language chosen in Settings. */
+export function useStrings() {
+  return STRINGS[useVault().vault.lang];
 }

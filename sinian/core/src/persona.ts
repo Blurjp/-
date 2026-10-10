@@ -2,6 +2,10 @@ import type { ChatMessage, StyleProfile } from "./types";
 
 const EMOJI = /\p{Extended_Pictographic}|\[[一-龥A-Za-z]{1,4}\]/gu; // 😊 and WeChat-style [微笑]
 const PARTICLES = ["呢", "啊", "呀", "哈", "嘛", "吧", "哦", "噢", "啦", "咯", "哟", "嗯", "喔"];
+/** Function words: an English n-gram made only of these says nothing about a person. */
+const STOP = new Set(
+  "i me my you your we our it its is am are was were be been do did does have has had a an the and or but so to of in on at for with that this there what if just not no yes can will would i'm it's you're don't".split(" "),
+);
 const CJK = /[一-鿿]/;
 
 function topN(counts: Map<string, number>, n: number, minCount = 2): string[] {
@@ -24,8 +28,15 @@ function phraseCandidates(text: string): string[] {
       for (let i = 0; i + n <= run.length; i++) out.add(run.slice(i, i + n));
     }
   }
+  // English: word bigrams and trigrams ("love you", "love you kiddo").
   const words = text.toLowerCase().match(/[a-z']+/g) ?? [];
-  for (let i = 0; i + 1 < words.length; i++) out.add(`${words[i]} ${words[i + 1]}`);
+  for (let n = 2; n <= 3; n++) {
+    for (let i = 0; i + n <= words.length; i++) {
+      const gram = words.slice(i, i + n);
+      if (gram.every((w) => STOP.has(w))) continue;
+      out.add(gram.join(" "));
+    }
+  }
   return [...out];
 }
 

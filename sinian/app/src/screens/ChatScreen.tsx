@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, Text, TextInput, View } from "react-native";
 import { File } from "expo-file-system";
-import { ConversationEngine, MemoryIndex, DEFAULT_WELLBEING, type EngineReply } from "@sinian/core";
-import { useVault } from "../state/VaultContext";
+import { ConversationEngine, MemoryIndex, DEFAULT_WELLBEING, describeReason, localDay, type EngineReply } from "@sinian/core";
+import { useStrings, useVault } from "../state/VaultContext";
 import { LocalLlm } from "../native/llm";
 import { VoiceClone } from "../native/voice";
 import { DEFAULT_MODELS, missingModels } from "../native/models";
@@ -14,10 +14,11 @@ interface Bubble {
   tone?: "crisis" | "info";
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDay(new Date());
 
 export function ChatScreen() {
   const { vault, update } = useVault();
+  const t = useStrings();
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +31,7 @@ export function ChatScreen() {
 
   // Every vault update produces fresh objects (usage ticks every minute), so key
   // the engine on content: rebuilding it would drop the conversation so far.
-  const engineKey = JSON.stringify([me?.id, persona, vault.consent, vault.memories.length, vault.region, vault.maxMinutesPerDay]);
+  const engineKey = JSON.stringify([me?.id, persona, vault.consent, vault.memories.length, vault.region, vault.maxMinutesPerDay, vault.lang]);
   const engine = useMemo(() => {
     if (!persona || !me) return undefined;
     const memory = new MemoryIndex();
@@ -43,6 +44,7 @@ export function ChatScreen() {
       userName: me.name,
       model: new LocalLlm(DEFAULT_MODELS.chat),
       region: vault.region,
+      uiLang: vault.lang,
       policy: { ...DEFAULT_WELLBEING, maxMinutesPerDay: vault.maxMinutesPerDay },
       usage: structuredClone(vault.usage),
     });
@@ -61,9 +63,9 @@ export function ChatScreen() {
 
   useEffect(() => () => { voice.current?.release(); }, []);
 
-  if (!me) return <Section title="请先选择你是谁"><Note>在"设置"里选择正在使用这台手机的家人。</Note></Section>;
-  if (!persona || !engine) return <Section title="还没有资料"><Note>请先在"导入资料"中导入聊天记录。</Note></Section>;
-  if (missing.length) return <Section title="需要下载模型"><Note>缺少：{missing.join("、")}。在"设置"里下载后即可离线使用。</Note></Section>;
+  if (!me) return <Section title={t.chat.whoFirst}><Note>{t.chat.whoFirstNote}</Note></Section>;
+  if (!persona || !engine) return <Section title={t.chat.noData}><Note>{t.chat.noDataNote}</Note></Section>;
+  if (missing.length) return <Section title={t.chat.needModels}><Note>{t.chat.needModelsNote(missing.join(", "))}</Note></Section>;
 
   const photo = vault.assets.find((a) => a.kind === "raw-image");
   const audioRef = vault.assets.find((a) => a.kind === "raw-audio");
@@ -75,9 +77,12 @@ export function ChatScreen() {
       out.push({ from: "ai", text: r.text });
       if (r.checkIn) out.push({ from: "system", text: r.checkIn, tone: "info" });
       if (voiceOn && r.modalities.includes("voice")) voice.current?.speak(r.text).catch(() => {});
-    } else if (r.kind === "crisis") out.push({ from: "system", text: r.text, tone: "crisis" });
+    } else if (r.kind === "crisis") {
+      out.push({ from: "system", text: r.text, tone: "crisis" });
+      update((v) => { v.crisisReferrals += 1; });
+    }
     else if (r.kind === "limit") out.push({ from: "system", text: r.text, tone: "info" });
-    else out.push({ from: "system", text: r.reasons.join("\n"), tone: "info" });
+    else out.push({ from: "system", text: r.reasons.map((x) => describeReason(x, vault.lang)).join("\n"), tone: "info" });
     setBubbles((b) => [...b, ...out]);
   };
 
@@ -88,9 +93,9 @@ export function ChatScreen() {
     setBubbles((b) => [...b, { from: "user", text }]);
     setBusy(true);
     try {
-      show(await engine.respond(text, today()));
+      show(await engine.respond(text, new Date()));
     } catch (e) {
-      setBubbles((b) => [...b, { from: "system", text: `出错了：${String(e)}`, tone: "info" }]);
+      setBubbles((b) => [...b, { from: "system", text: t.chat.error(String(e)), tone: "info" }]);
     } finally {
       setBusy(false);
       setTimeout(() => scroll.current?.scrollToEnd(), 50);
@@ -116,10 +121,10 @@ export function ChatScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 18, fontWeight: "600" }}>{persona.displayName}</Text>
           {/* Permanent label: this is never presented as the real person. */}
-          <Text style={{ fontSize: 12, color: colors.muted }}>AI 模拟 · 根据遗留资料生成 · 可能出错</Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>{t.chat.label}</Text>
         </View>
         {audioRef && vault.voiceRefText && (
-          <Button kind="plain" label={voiceOn ? "🔊 声音开" : "🔈 开启声音"} onPress={voiceOn ? () => setVoiceOn(false) : enableVoice} />
+          <Button kind="plain" label={voiceOn ? t.chat.voiceOn : t.chat.voiceOff} onPress={voiceOn ? () => setVoiceOn(false) : enableVoice} />
         )}
       </View>
 
@@ -144,11 +149,11 @@ export function ChatScreen() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder={`和${persona.displayName}说点什么…`}
+          placeholder={t.chat.placeholder(persona.displayName)}
           multiline
           style={{ flex: 1, backgroundColor: colors.card, borderRadius: 10, padding: 10, fontSize: 16, maxHeight: 120 }}
         />
-        <Button label="发送" onPress={send} disabled={busy || !input.trim()} />
+        <Button label={t.chat.send} onPress={send} disabled={busy || !input.trim()} />
       </View>
     </View>
   );
